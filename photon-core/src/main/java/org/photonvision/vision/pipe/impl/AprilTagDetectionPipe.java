@@ -59,7 +59,8 @@ public class AprilTagDetectionPipe
         AprilTagDetection[] ret;
         if (cudaAccelerated) {
             if (cudaDetector == 0) {
-                throw new RuntimeException("CUDA Apriltag detector was released!");
+                // throw new RuntimeException("CUDA Apriltag detector was released!");
+                cudaDetector = GpuDetectorJNI.createGpuDetector(640, 480);
             }
             ret = GpuDetectorJNI.processimage(cudaDetector, in.getMat().getNativeObjAddr());
         } else {
