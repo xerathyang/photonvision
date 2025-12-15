@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Stream;
 import org.photonvision.common.configuration.NeuralNetworkPropertyManager.ModelProperties;
 import org.photonvision.common.hardware.Platform;
 import org.photonvision.common.logging.LogGroup;
@@ -211,12 +212,23 @@ public class NeuralNetworkModelManager {
     }
 
     /**
-     * Returns the singleton instance of the NeuralNetworkModelManager
+     * Returns the singleton instance of the NeuralNetworkModelManager. Call getInstance() to use the
+     * default (no reset), or getInstance(true) to reset.
      *
      * @return The singleton instance
      */
     public static NeuralNetworkModelManager getInstance() {
-        if (INSTANCE == null) {
+        return getInstance(false);
+    }
+
+    /**
+     * Returns the singleton instance of the NeuralNetworkModelManager, optionally resetting it.
+     *
+     * @param reset If true, resets the instance
+     * @return The singleton instance
+     */
+    public static NeuralNetworkModelManager getInstance(boolean reset) {
+        if (INSTANCE == null || reset) {
             INSTANCE = new NeuralNetworkModelManager();
         }
         return INSTANCE;
@@ -365,8 +377,8 @@ public class NeuralNetworkModelManager {
 
         models = new HashMap<>();
 
-        try {
-            Files.walk(modelsDirectory.toPath())
+        try (Stream<Path> files = Files.walk(modelsDirectory.toPath())) {
+            files
                     .filter(Files::isRegularFile)
                     .filter(
                             path ->
@@ -469,8 +481,8 @@ public class NeuralNetworkModelManager {
         File modelsDirectory = ConfigManager.getInstance().getModelsDirectory();
 
         if (modelsDirectory.exists()) {
-            try {
-                Files.walk(modelsDirectory.toPath())
+            try (Stream<Path> files = Files.walk(modelsDirectory.toPath())) {
+                files
                         .sorted((a, b) -> b.compareTo(a))
                         .forEach(
                                 path -> {

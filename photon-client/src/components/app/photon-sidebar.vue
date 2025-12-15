@@ -5,7 +5,7 @@ import { useStateStore } from "@/stores/StateStore";
 import { useCameraSettingsStore } from "@/stores/settings/CameraSettingsStore";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { onBeforeMount } from "vue";
+import { toggleTheme } from "@/lib/ThemeManager";
 
 const compact = computed<boolean>({
   get: () => {
@@ -19,27 +19,13 @@ const { mdAndUp } = useDisplay();
 
 const theme = useTheme();
 
-const changeTheme = () => {
-  const newTheme = theme.global.name.value === "LightTheme" ? "DarkTheme" : "LightTheme";
-  theme.global.name.value = newTheme;
-  localStorage.setItem("theme", newTheme);
-};
-
-onBeforeMount(() => {
-  const storedTheme = localStorage.getItem("theme");
-  if (storedTheme) {
-    theme.global.name.value = storedTheme;
-  }
-});
-
 const renderCompact = computed<boolean>(() => compact.value || !mdAndUp.value);
 </script>
 
 <template>
   <v-navigation-drawer permanent :rail="renderCompact" color="sidebar">
     <v-list nav color="primary">
-      <!-- List item for the heading; note that there are some tricks in setting padding and image width make things look right -->
-      <v-list-item :class="renderCompact ? 'pr-0 pl-0' : ''" style="display: flex; justify-content: center">
+      <v-list-item class="pr-0 pl-0" style="display: flex; justify-content: center">
         <template #prepend>
           <img v-if="!renderCompact" class="logo" src="@/assets/images/logoLarge.svg" alt="large logo" />
           <img v-else class="logo" src="@/assets/images/logoSmallTransparent.svg" alt="small logo" />
@@ -88,7 +74,7 @@ const renderCompact = computed<boolean>(() => compact.value || !mdAndUp.value);
         <v-list-item
           link
           :prepend-icon="theme.global.name.value === 'LightTheme' ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
-          @click="changeTheme"
+          @click="() => toggleTheme(theme)"
         >
           <v-list-item-title>Theme</v-list-item-title>
         </v-list-item>

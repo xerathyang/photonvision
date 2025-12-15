@@ -87,7 +87,7 @@ public class DataSocketHandler {
             var reason = context.reason() != null ? context.reason() : "Connection closed by client";
             logger.info("Closing websocket connection from " + host + " for reason: " + reason);
         } else {
-            logger.info("Closing websockets for user " + context.getSessionId());
+            logger.info("Closing websockets for user " + context.sessionId());
         }
     }
 
@@ -155,7 +155,7 @@ public class DataSocketHandler {
                             // var name = (String) data.get("pipelineName");
                             var arr = (ArrayList<Object>) entryValue;
                             var name = (String) arr.get(0);
-                            var type = PipelineType.values()[(Integer) arr.get(1) + 2];
+                            var type = PipelineType.values()[(Integer) arr.get(1) + 3];
 
                             dcService.publishEvent(
                                     new IncomingWebSocketEvent<>(

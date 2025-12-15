@@ -8,7 +8,7 @@ This section contains the build instructions from the source code available at [
 
 **Java Development Kit:**
 
- This project requires Java Development Kit (JDK) 17 to be compiled. This is the same Java version that comes with WPILib for 2025+. **Windows Users must use the JDK that ships with WPILib.** For other platforms, you can follow the instructions to install JDK 17 for your platform [here](https://bell-sw.com/pages/downloads/#jdk-17-lts).
+ This project requires Java Development Kit (JDK) 17 to be compiled. This is the same Java version that comes with WPILib for 2026+. **Windows Users must use the JDK that ships with WPILib.** For other platforms, you can follow the instructions to install JDK 17 for your platform [here](https://bell-sw.com/pages/downloads/#jdk-17-lts).
 
 **Node JS:**
 
@@ -17,6 +17,10 @@ This section contains the build instructions from the source code available at [
 **pnpm:**
 
  [pnpm](https://pnpm.io/) is the package manager used to download dependencies for the UI. To install pnpm, follow [the instructions on the official pnpm website](https://pnpm.io/installation).
+
+**Cross-Compilation Toolchains (Optional):**
+
+ If you plan to deploy PhotonVision to a coprocessor like a Raspberry Pi, you will need to install the appropriate cross-compilation toolchain for your platform. For `linuxarm64` devices, this can be accomplished by running `./gradlew installArm64Toolchain` in the root folder of the project.
 
 ## Compiling Instructions
 
@@ -43,26 +47,6 @@ In the photon-client directory:
 pnpm install
 ```
 
-### Build and Copy UI to Java Source
-
-In the root directory:
-
-```{eval-rst}
-.. tab-set::
-
-   .. tab-item:: Linux
-
-      ``./gradlew buildAndCopyUI``
-
-   .. tab-item:: macOS
-
-      ``./gradlew buildAndCopyUI``
-
-   .. tab-item:: Windows (cmd)
-
-      ``gradlew buildAndCopyUI``
-```
-
 ### Using hot reload on the UI
 
 In the photon-client directory:
@@ -81,14 +65,17 @@ To compile and run the project, issue the following command in the root director
 .. tab-set::
 
    .. tab-item:: Linux
+      :sync: linux
 
       ``./gradlew run``
 
    .. tab-item:: macOS
+      :sync: macos
 
       ``./gradlew run``
 
    .. tab-item:: Windows (cmd)
+      :sync: windows
 
       ``gradlew run``
 ```
@@ -99,21 +86,24 @@ Running the following command under the root directory will build the jar under 
 .. tab-set::
 
    .. tab-item:: Linux
+      :sync: linux
 
       ``./gradlew shadowJar``
 
    .. tab-item:: macOS
+      :sync: macos
 
       ``./gradlew shadowJar``
 
    .. tab-item:: Windows (cmd)
+      :sync: windows
 
       ``gradlew shadowJar``
 ```
 
 ### Build and Run PhotonVision on a Raspberry Pi Coprocessor
 
-As a convenience, the build has a built-in `deploy` command which builds, deploys, and starts the current source code on a coprocessor.
+As a convenience, the build has a built-in `deploy` command which builds, deploys, and starts the current source code on a coprocessor. It uses [deploy-utils](https://github.com/wpilibsuite/deploy-utils/blob/main/README.md), so it works very similarly to deploys on robot projects.
 
 An architecture override is required to specify the deploy target's architecture.
 
@@ -121,18 +111,21 @@ An architecture override is required to specify the deploy target's architecture
 .. tab-set::
 
    .. tab-item:: Linux
+      :sync: linux
 
       ``./gradlew clean``
 
       ``./gradlew deploy -PArchOverride=linuxarm64``
 
    .. tab-item:: macOS
+      :sync: macos
 
       ``./gradlew clean``
 
       ``./gradlew deploy -PArchOverride=linuxarm64``
 
    .. tab-item:: Windows (cmd)
+      :sync: windows
 
       ``gradlew clean``
 
@@ -151,14 +144,17 @@ The photonlib source can be published to your local maven repository after build
 .. tab-set::
 
    .. tab-item:: Linux
+      :sync: linux
 
       ``./gradlew publishToMavenLocal``
 
    .. tab-item:: macOS
+      :sync: macos
 
       ``./gradlew publishToMavenLocal``
 
    .. tab-item:: Windows (cmd)
+      :sync: windows
 
       ``gradlew publishToMavenLocal``
 ```
@@ -180,6 +176,29 @@ With the VSCode [Extension Pack for Java](https://marketplace.visualstudio.com/i
 ```
 
 To correctly run PhotonVision tests this way, you must [delegate the tests to Gradle](https://code.visualstudio.com/docs/java/java-build#_delegate-tests-to-gradle). Debugging tests like this will [**not** currently](https://github.com/microsoft/build-server-for-gradle/issues/119) collect outputs.
+
+### Running Tests With UI
+
+By default, tests are run with UI disabled so they are not obtrusive during a build. All tests should be useful when the UI is disabled. However, if a particular test would benefit from having UI access (i.e. for debugging info), the UI can be enabled by passing the `enableTestUi` project property to Gradle. This will run all tests by default, but the Gradle `--tests` option can be used to [filter for specific tests](https://docs.gradle.org/current/userguide/java_testing.html#test_filtering).
+
+```{eval-rst}
+.. tab-set::
+
+   .. tab-item:: Linux
+      :sync: linux
+
+      ``./gradlew test -PenableTestUi``
+
+   .. tab-item:: macOS
+      :sync: macos
+
+      ``./gradlew test -PenableTestUi``
+
+   .. tab-item:: Windows (cmd)
+      :sync: windows
+
+      ``gradlew test -PenableTestUi``
+```
 
 ### Debugging PhotonVision Running Locally
 
@@ -283,3 +302,9 @@ Using the [GitHub CLI](https://cli.github.com/), we can download artifacts from 
 MacOS builds are not published to releases as MacOS is not an officially
 supported platform. However, MacOS builds are still available from the MacOS
 build action, which can be found [here](https://github.com/PhotonVision/photonvision/actions/workflows/build.yml).
+
+#### Forcing Object Detection in the UI
+
+In order to force the Object Detection interface to be visible, it's necessary to hardcode the platform that `Platform.java` returns. This can be done by changing the function that detects the RK3588S/QCS6490 platform to always return true, and changing the `getCurrentPlatform()` function to always return the RK3588S/QCS6490 architecture.
+Alternatively, it's possible to modify the frontend code by changing all instances of `useSettingsStore().general.supportedBackends.length > 0` to `true`, which will force the card to render.
+Make sure to revert these changes before submitting a Pull Request.

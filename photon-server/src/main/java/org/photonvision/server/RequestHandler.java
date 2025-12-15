@@ -35,6 +35,7 @@ import org.apache.commons.io.FileUtils;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfInt;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.photonvision.common.configuration.ConfigManager;
 import org.photonvision.common.configuration.NetworkConfig;
@@ -72,6 +73,12 @@ public class RequestHandler {
     private static final Logger logger = new Logger(RequestHandler.class, LogGroup.WebServer);
 
     private static final ObjectMapper kObjectMapper = new ObjectMapper();
+
+    private static boolean testMode = false;
+
+    public static void setTestMode(boolean isTestMode) {
+        testMode = isTestMode;
+    }
 
     private record CommonCameraUniqueName(String cameraUniqueName) {}
 
@@ -336,14 +343,10 @@ public class RequestHandler {
             return;
         }
 
-        try {
-            Path filePath =
-                    Paths.get(ProgramDirectoryUtilities.getProgramDirectory(), "photonvision.jar");
-            File targetFile = new File(filePath.toString());
-            var stream = new FileOutputStream(targetFile);
-
-            file.content().transferTo(stream);
-            stream.close();
+        Path targetPath =
+                Paths.get(ProgramDirectoryUtilities.getProgramDirectory(), "photonvision.jar");
+        try (InputStream fileSteam = file.content()) {
+            Files.copy(fileSteam, targetPath, StandardCopyOption.REPLACE_EXISTING);
 
             ctx.status(200);
             ctx.result(
@@ -439,7 +442,7 @@ public class RequestHandler {
             // dmesg = output all kernel logs since current boot
             // cat /var/log/kern.log = output all kernel logs since first boot
             shell.executeBashCommand(
-                    "journalctl -u photonvision.service > "
+                    "journalctl -a --output cat -u photonvision.service | sed -E 's/\\x1B\\[(0|30|31|32|33|34|35|36|37)m//g' >"
                             + tempPath.toAbsolutePath()
                             + " && dmesg > "
                             + tempPath2.toAbsolutePath());
@@ -655,49 +658,46 @@ public class RequestHandler {
                 return;
             }
 
-            try (FileOutputStream out = new FileOutputStream(modelPath.toFile())) {
-                modelFile.content().transferTo(out);
+            try (InputStream modelFileStream = modelFile.content()) {
+                Files.copy(modelFileStream, modelPath, StandardCopyOption.REPLACE_EXISTING);
             }
+
+            int idx = modelFile.filename().lastIndexOf('.');
+            String nickname = modelFile.filename().substring(0, idx);
 
             ModelProperties modelProperties =
-                    new ModelProperties(
-                            modelPath,
-                            modelFile.filename().replaceAll("." + family.extension(), ""),
-                            labels,
-                            width,
-                            height,
-                            family,
-                            version);
+                    new ModelProperties(modelPath, nickname, labels, width, height, family, version);
 
-            ObjectDetector objDetector = null;
-
-            try {
-                objDetector =
-                        switch (family) {
-                            case RUBIK -> new RubikModel(modelProperties).load();
-                            case RKNN -> new RknnModel(modelProperties).load();
-                        };
-            } catch (RuntimeException e) {
-                ctx.status(400);
-                ctx.result("Failed to load object detection model: " + e.getMessage());
+            if (!testMode) {
+                ObjectDetector objDetector = null;
 
                 try {
-                    Files.deleteIfExists(modelPath);
-                } catch (IOException ex) {
-                    e.addSuppressed(ex);
-                }
+                    objDetector =
+                            switch (family) {
+                                case RUBIK -> new RubikModel(modelProperties).load();
+                                case RKNN -> new RknnModel(modelProperties).load();
+                            };
+                } catch (RuntimeException e) {
+                    ctx.status(400);
+                    ctx.result("Failed to load object detection model: " + e.getMessage());
 
-                logger.error("Failed to load object detection model", e);
-                return;
-            } finally {
-                // this finally block will run regardless of what happens in try/catch
-                // please see https://docs.oracle.com/javase/tutorial/essential/exceptions/finally.html
-                // for a summary on how finally works
-                if (objDetector != null) {
-                    objDetector.release();
+                    try {
+                        Files.deleteIfExists(modelPath);
+                    } catch (IOException ex) {
+                        e.addSuppressed(ex);
+                    }
+
+                    logger.error("Failed to load object detection model", e);
+                    return;
+                } finally {
+                    // this finally block will run regardless of what happens in try/catch
+                    // please see https://docs.oracle.com/javase/tutorial/essential/exceptions/finally.html
+                    // for a summary on how finally works
+                    if (objDetector != null) {
+                        objDetector.release();
+                    }
                 }
             }
-
             ConfigManager.getInstance()
                     .getConfig()
                     .neuralNetworkPropertyManager()
@@ -850,33 +850,30 @@ public class RequestHandler {
         }
     }
 
-    private record DeleteObjectDetectionModelRequest(String modelPath) {}
+    private record DeleteObjectDetectionModelRequest(Path modelPath) {}
 
     public static void onDeleteObjectDetectionModelRequest(Context ctx) {
         logger.info("Deleting object detection model");
-        Path modelPath;
 
         try {
             DeleteObjectDetectionModelRequest request =
                     JacksonUtils.deserialize(ctx.body(), DeleteObjectDetectionModelRequest.class);
 
-            modelPath = Path.of(request.modelPath.substring(7));
-
-            if (modelPath == null) {
+            if (request.modelPath == null) {
                 ctx.status(400);
                 ctx.result("The provided model path was malformed");
                 logger.error("The provided model path was malformed");
                 return;
             }
 
-            if (!modelPath.toFile().exists()) {
+            if (!request.modelPath.toFile().exists()) {
                 ctx.status(400);
                 ctx.result("The provided model path does not exist");
                 logger.error("The provided model path does not exist");
                 return;
             }
 
-            if (!modelPath.toFile().delete()) {
+            if (!request.modelPath.toFile().delete()) {
                 ctx.status(500);
                 ctx.result("Unable to delete the model file");
                 logger.error("Unable to delete the model file");
@@ -886,7 +883,7 @@ public class RequestHandler {
             if (!ConfigManager.getInstance()
                     .getConfig()
                     .neuralNetworkPropertyManager()
-                    .removeModel(modelPath)) {
+                    .removeModel(request.modelPath)) {
                 ctx.status(400);
                 ctx.result("The model's information was not found in the config");
                 logger.error("The model's information was not found in the config");
@@ -910,26 +907,24 @@ public class RequestHandler {
                                 UIPhotonConfiguration.programStateToUi(ConfigManager.getInstance().getConfig())));
     }
 
-    private record RenameObjectDetectionModelRequest(String modelPath, String newName) {}
+    private record RenameObjectDetectionModelRequest(Path modelPath, String newName) {}
 
     public static void onRenameObjectDetectionModelRequest(Context ctx) {
         try {
             RenameObjectDetectionModelRequest request =
                     JacksonUtils.deserialize(ctx.body(), RenameObjectDetectionModelRequest.class);
 
-            Path modelPath = Path.of(request.modelPath);
-
-            if (modelPath == null) {
+            if (request.modelPath == null) {
                 ctx.status(400);
                 ctx.result("The provided model path was malformed");
                 logger.error("The provided model path was malformed");
                 return;
             }
 
-            if (!modelPath.toFile().exists()) {
+            if (!request.modelPath.toFile().exists()) {
                 ctx.status(400);
                 ctx.result("The provided model path does not exist");
-                logger.error("The model path: " + modelPath + " does not exist");
+                logger.error("The model path: " + request.modelPath + " does not exist");
                 return;
             }
 
@@ -943,7 +938,7 @@ public class RequestHandler {
             if (!ConfigManager.getInstance()
                     .getConfig()
                     .neuralNetworkPropertyManager()
-                    .renameModel(modelPath, request.newName)) {
+                    .renameModel(request.modelPath, request.newName)) {
                 ctx.status(400);
                 ctx.result("The model's information was not found in the config");
                 logger.error("The model's information was not found in the config");
@@ -1003,6 +998,46 @@ public class RequestHandler {
     public static void onMetricsPublishRequest(Context ctx) {
         HardwareManager.getInstance().publishMetrics();
         ctx.status(204);
+    }
+
+    private record CalibrationRemoveRequest(int width, int height, String cameraUniqueName) {}
+
+    public static void onCalibrationRemoveRequest(Context ctx) {
+        try {
+            CalibrationRemoveRequest request =
+                    kObjectMapper.readValue(ctx.body(), CalibrationRemoveRequest.class);
+
+            logger.info(
+                    "Attempting to remove calibration for camera: "
+                            + request.cameraUniqueName
+                            + " with a resolution of "
+                            + request.width
+                            + "x"
+                            + request.height);
+
+            VisionSourceManager.getInstance()
+                    .vmm
+                    .getModule(request.cameraUniqueName)
+                    .removeCalibrationFromConfig(new Size(request.width, request.height));
+
+            ctx.status(200);
+            ctx.result(
+                    "Successfully removed calibration for resolution: "
+                            + request.width
+                            + "x"
+                            + request.height);
+            logger.info(
+                    "Successfully removed calibration for resolution: "
+                            + request.width
+                            + "x"
+                            + request.height);
+        } catch (JsonProcessingException e) {
+            ctx.status(400).result("Invalid JSON format");
+            logger.error("Failed to process calibration removed request", e);
+        } catch (Exception e) {
+            ctx.status(500).result("Failed to removed calibration");
+            logger.error("Unexpected error while attempting to remove calibration", e);
+        }
     }
 
     public static void onCalibrationSnapshotRequest(Context ctx) {

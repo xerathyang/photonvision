@@ -17,7 +17,7 @@ If you are interested in contributing code or documentation to the project, plea
 ## Documentation
 
 - Our main documentation page: [docs.photonvision.org](https://docs.photonvision.org)
-- Photon UI demo: [http://photonvision.global/](http://photonvision.global/)
+- Photon UI demo: [demo.photonvision.org](https://demo.photonvision.org)
 - Javadocs: [javadocs.photonvision.org](https://javadocs.photonvision.org)
 - C++ Doxygen  [cppdocs.photonvision.org](https://cppdocs.photonvision.org)
 
@@ -41,6 +41,8 @@ Note that these are case sensitive!
     * linuxarm64
     * linuxathena
 - `-PtgtIP`: Specifies where `./gradlew deploy` should try to copy the fat JAR to
+- `-PtgtUser`: Specifies custom username for `./gradlew deploy` to SSH into
+- `-PtgtPw`: Specifies custom password for `./gradlew deploy` to SSH into
 - `-Pprofile`: enables JVM profiling
 - `-PwithSanitizers`: On Linux, enables `-fsanitize=address,undefined,leak`
 
@@ -55,14 +57,6 @@ PhotonVision uses the following additional out-of-source repositories for buildi
 - JNI code for [mrcal](https://mrcal.secretsauce.net/): https://github.com/PhotonVision/mrcal-java
 - Custom build of OpenCV with GStreamer/Protobuf/other custom flags: https://github.com/PhotonVision/thirdparty-opencv
 - JNI code for aruco-nano: https://github.com/PhotonVision/aruconano-jni
-
-## Additional packages
-
-For now, using mrcal requires installing these additional packages on Linux systems:
-
-```
-sudo apt install libcholmod3 liblapack3 libsuitesparseconfig5
-```
 
 ## Acknowledgments
 
