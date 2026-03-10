@@ -34,6 +34,7 @@ public class AprilTagPipelineSettings extends AdvancedPipelineSettings {
     public int decisionMargin = 35;
     public boolean doMultiTarget = false;
     public boolean doSingleTargetAlways = false;
+    public boolean cudaAcceleration = false;
 
     // 3d settings
 
@@ -63,6 +64,7 @@ public class AprilTagPipelineSettings extends AdvancedPipelineSettings {
         result = prime * result + decisionMargin;
         result = prime * result + (doMultiTarget ? 1231 : 1237);
         result = prime * result + (doSingleTargetAlways ? 1231 : 1237);
+        result = prime * result + (cudaAcceleration ? 1231 : 1237);
         return result;
     }
 
@@ -83,6 +85,7 @@ public class AprilTagPipelineSettings extends AdvancedPipelineSettings {
         if (decisionMargin != other.decisionMargin) return false;
         if (doMultiTarget != other.doMultiTarget) return false;
         if (doSingleTargetAlways != other.doSingleTargetAlways) return false;
+        if (cudaAcceleration != other.cudaAcceleration) return false;
         return true;
     }
 }

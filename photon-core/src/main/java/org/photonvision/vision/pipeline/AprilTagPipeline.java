@@ -54,7 +54,7 @@ import org.photonvision.vision.target.TrackedTarget.TargetCalculationParameters;
 public class AprilTagPipeline extends CVPipeline<CVPipelineResult, AprilTagPipelineSettings> {
     private static final Logger logger = new Logger(AprilTagPipeline.class, LogGroup.VisionModule);
 
-    private final AprilTagDetectionPipe aprilTagDetectionPipe = new AprilTagDetectionPipe();
+    private final AprilTagDetectionPipe aprilTagDetectionPipe;
     private final AprilTagPoseEstimatorPipe singleTagPoseEstimatorPipe =
             new AprilTagPoseEstimatorPipe();
     private final MultiTargetPNPPipe multiTagPNPPipe = new MultiTargetPNPPipe();
@@ -65,11 +65,13 @@ public class AprilTagPipeline extends CVPipeline<CVPipelineResult, AprilTagPipel
     public AprilTagPipeline() {
         super(PROCESSING_TYPE);
         settings = new AprilTagPipelineSettings();
+        aprilTagDetectionPipe = new AprilTagDetectionPipe(settings.cudaAcceleration);
     }
 
     public AprilTagPipeline(AprilTagPipelineSettings settings) {
         super(PROCESSING_TYPE);
         this.settings = settings;
+        aprilTagDetectionPipe = new AprilTagDetectionPipe(settings.cudaAcceleration);
     }
 
     @Override
@@ -106,7 +108,12 @@ public class AprilTagPipeline extends CVPipeline<CVPipelineResult, AprilTagPipel
         quadParams.deglitch = false;
 
         aprilTagDetectionPipe.setParams(
-                new AprilTagDetectionPipeParams(settings.tagFamily, config, quadParams));
+                new AprilTagDetectionPipeParams(
+                        settings.tagFamily,
+                        config,
+                        quadParams,
+                        frameStaticProperties.cameraCalibration,
+                        settings.cudaAcceleration));
 
         if (frameStaticProperties.cameraCalibration != null) {
             var cameraMatrix = frameStaticProperties.cameraCalibration.getCameraIntrinsicsMat();

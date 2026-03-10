@@ -10,4 +10,5 @@ modifiableFileExclude {
 
 licenseUpdateExclude {
   CombinedRuntimeLoader.java
+  photon-core/src/main/java/org/photonvision/jni/GpuDetectorJNI.java
 }
